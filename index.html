@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gestor de Entrenamiento</title>
     <!-- Incluir Bootstrap desde CDN -->
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
@@ -10,17 +10,21 @@
         .exercise-table { margin-top: 20px; }
         .exercise-row { display: none; }
         .completed { text-decoration: line-through; color: grey; }
-        .card-notification { margin-top: 15px; }
-        .summary-table { background-color: #343a40; color: white; }
+        .card-notification { margin-top: 15px; background-color: #343a40; color: #ffffff; }
+        .summary-table { background-color: #2c3035; color: #ffffff; }
         .day-title {
             background-color: #495057; 
             color: #fff; 
             padding: 8px; 
             margin-top: 10px; 
             font-weight: bold;
+            text-align: center;
+            border-radius: 5px;
         }
         .positive { color: #28a745; font-weight: bold; }
         .negative { color: #dc3545; font-weight: bold; }
+        .form-control { font-size: 14px; }
+        .complete-btn, .btn { font-size: 14px; padding: 5px 10px; }
     </style>
 </head>
 <body class="bg-light">
@@ -41,24 +45,26 @@
     <!-- Formulario para añadir rutina -->
     <div class="form-group mt-4">
         <label for="routineInput">Introduce tu rutina (Día - Grupo Muscular - Ejercicio - Series - Rango repeticiones):</label>
-        <textarea id="routineInput" class="form-control" rows="4" placeholder="Día X - Grupo Muscular - Ejercicio - Series - Repeticiones"></textarea>
-        <button id="loadRoutine" class="btn btn-primary mt-2">Cargar Rutina</button>
+        <textarea id="routineInput" class="form-control" rows="3" placeholder="Día X - Grupo Muscular - Ejercicio - Series - Repeticiones"></textarea>
+        <button id="loadRoutine" class="btn btn-primary mt-2 w-100">Cargar Rutina</button>
     </div>
     
     <!-- Tabla de ejercicios -->
-    <table id="routineTable" class="table table-hover exercise-table">
-        <thead class="thead-dark">
-            <tr>
-                <th>Grupo Muscular</th>
-                <th>Ejercicio</th>
-                <th>Series</th>
-                <th>Repeticiones</th>
-                <th>Peso</th>
-                <th>Acción</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div class="table-responsive">
+        <table id="routineTable" class="table table-hover exercise-table">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Grupo Muscular</th>
+                    <th>Ejercicio</th>
+                    <th>Series</th>
+                    <th>Repeticiones</th>
+                    <th>Peso</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Scripts -->
@@ -156,7 +162,6 @@
                     const latestWeight = weights[weights.length - 1];
                     let variation = "";
 
-                    // Calcular la diferencia de peso respecto al día anterior
                     if (previousWeights[`${group}-${exercise}`] !== undefined) {
                         const weightDifference = (latestWeight - previousWeights[`${group}-${exercise}`]).toFixed(2);
                         variation = weightDifference > 0

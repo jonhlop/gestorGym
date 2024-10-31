@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Entrenamiento</title>
+    <!-- Incluir Bootstrap desde CDN -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .exercise-table { margin-top: 20px; }
+        .exercise-row { display: none; }
+        .completed { text-decoration: line-through; color: grey; }
+        .card-notification { margin-top: 15px; }
+        .summary-table { background-color: #343a40; color: white; }
+        .day-title {
+            background-color: #495057; 
+            color: #fff; 
+            padding: 8px; 
+            margin-top: 10px; 
+            font-weight: bold;
+        }
+        .positive { color: #28a745; font-weight: bold; }
+        .negative { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container">
+    <h1 class="text-center my-4">Planificador de Entrenamiento</h1>
+    
+    <!-- Resumen Semanal -->
+    <div class="card card-notification text-white text-center">
+        <div class="card-body">
+            <h5>Resumen Semanal</h5>
+            <div id="weekly-summary">
+                <!-- El resumen semanal se genera dinámicamente -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Formulario para añadir rutina -->
+    <div class="form-group mt-4">
+        <label for="routineInput">Introduce tu rutina (Día - Grupo Muscular - Ejercicio - Series - Rango repeticiones):</label>
+        <textarea id="routineInput" class="form-control" rows="4" placeholder="Día X - Grupo Muscular - Ejercicio - Series - Repeticiones"></textarea>
+        <button id="loadRoutine" class="btn btn-primary mt-2">Cargar Rutina</button>
+    </div>
+    
+    <!-- Tabla de ejercicios -->
+    <table id="routineTable" class="table table-hover exercise-table">
+        <thead class="thead-dark">
+            <tr>
+                <th>Grupo Muscular</th>
+                <th>Ejercicio</th>
+                <th>Series</th>
+                <th>Repeticiones</th>
+                <th>Peso</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.1/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    let exercises = [];
+    let completedExercises = JSON.parse(localStorage.getItem("completedExercises")) || {};
+    let weeklyData = JSON.parse(localStorage.getItem("weeklyData")) || {};
+
+    // Cargar la rutina en la tabla
+    document.getElementById("loadRoutine").addEventListener("click", function() {
+        const routineInput = document.getElementById("routineInput").value.trim();
+        const rows = routineInput.split("\n");
+
+        document.querySelector("#routineTable tbody").innerHTML = "";
+        exercises = [];
+
+        // Parsear cada línea de la rutina y generar filas en la tabla
+        rows.forEach((row, idx) => {
+            const [day, group, exercise, series, reps] = row.split(" - ");
+            exercises.push({ day, group, exercise, series: parseInt(series), reps });
+
+            for (let i = 1; i <= parseInt(series); i++) {
+                const tr = document.createElement("tr");
+                tr.classList.add("exercise-row");
+                tr.dataset.exercise = idx;
+                tr.dataset.series = i;
+                tr.dataset.day = day;
+                tr.dataset.group = group;
+                tr.dataset.exerciseName = exercise;
+                tr.innerHTML = `
+                    <td>${group}</td>
+                    <td>${exercise}</td>
+                    <td>Serie ${i} de ${series}</td>
+                    <td><input type="number" placeholder="Reps" class="form-control reps-input" required></td>
+                    <td><input type="number" placeholder="Peso" class="form-control weight-input" required></td>
+                    <td><button class="btn btn-success complete-btn">Completar</button></td>
+                `;
+                document.querySelector("#routineTable tbody").appendChild(tr);
+            }
+        });
+
+        $(".exercise-row[data-series='1']").show();
+        updateWeeklySummary();
+    });
+
+    // Marcar serie completada y actualizar datos de peso
+    document.addEventListener("click", function(e) {
+        if (!e.target.classList.contains("complete-btn")) return;
+
+        const row = e.target.closest("tr");
+        const exerciseIdx = row.dataset.exercise;
+        const seriesIdx = row.dataset.series;
+        const reps = row.querySelector(".reps-input").value;
+        const weight = parseFloat(row.querySelector(".weight-input").value);
+        const day = row.dataset.day;
+        const group = row.dataset.group;
+        const exerciseName = row.dataset.exerciseName;
+
+        if (!completedExercises[exerciseIdx]) completedExercises[exerciseIdx] = {};
+        completedExercises[exerciseIdx][seriesIdx] = { reps, weight };
+        localStorage.setItem("completedExercises", JSON.stringify(completedExercises));
+
+        // Almacenar el peso en el resumen semanal detallado
+        if (!weeklyData[day]) weeklyData[day] = {};
+        if (!weeklyData[day][group]) weeklyData[day][group] = {};
+        if (!weeklyData[day][group][exerciseName]) weeklyData[day][group][exerciseName] = [];
+        weeklyData[day][group][exerciseName].push(weight);
+        localStorage.setItem("weeklyData", JSON.stringify(weeklyData));
+
+        row.classList.add("completed");
+        row.querySelector(".complete-btn").disabled = true;
+        $(row).hide();
+
+        const nextRow = row.nextElementSibling;
+        if (nextRow && nextRow.dataset.exercise === exerciseIdx) {
+            $(nextRow).show();
+        }
+
+        updateWeeklySummary();
+    });
+
+    // Resumen semanal por día, grupo muscular y ejercicio
+    function updateWeeklySummary() {
+        let summaryHtml = "";
+        let previousWeights = {};
+
+        for (const [day, groups] of Object.entries(weeklyData)) {
+            summaryHtml += `<div class="day-title">Día ${day}</div><table class="table table-sm summary-table"><thead><tr><th>Grupo Muscular</th><th>Ejercicio</th><th>Peso</th><th>Variación</th></tr></thead><tbody>`;
+            for (const [group, exercises] of Object.entries(groups)) {
+                for (const [exercise, weights] of Object.entries(exercises)) {
+                    const latestWeight = weights[weights.length - 1];
+                    let variation = "";
+
+                    // Calcular la diferencia de peso respecto al día anterior
+                    if (previousWeights[`${group}-${exercise}`] !== undefined) {
+                        const weightDifference = (latestWeight - previousWeights[`${group}-${exercise}`]).toFixed(2);
+                        variation = weightDifference > 0
+                            ? `<span class="positive">+${weightDifference} Kg</span>`
+                            : `<span class="negative">${weightDifference} Kg</span>`;
+                    }
+
+                    previousWeights[`${group}-${exercise}`] = latestWeight;
+                    summaryHtml += `<tr><td>${group}</td><td>${exercise}</td><td>${latestWeight} Kg</td><td>${variation}</td></tr>`;
+                }
+            }
+            summaryHtml += `</tbody></table>`;
+        }
+
+        document.getElementById("weekly-summary").innerHTML = summaryHtml;
+    }
+
+    // Al cargar la página
+    document.addEventListener("DOMContentLoaded", function() {
+        if (Object.keys(completedExercises).length > 0) updateWeeklySummary();
+    });
+</script>
+
+</body>
+</html>
